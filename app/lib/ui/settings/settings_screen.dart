@@ -195,7 +195,8 @@ class SettingsScreen extends ConsumerWidget {
               icon: Icons.terminal,
               tint: SettingsHues.abilities,
               title: '终端权限',
-              value: Text(switch (phone.status.shell.mode) {
+              // phone 在非 Android/iOS 上是 null，未就绪时按原版显示。
+              value: Text(switch (phone?.status.shell.mode ?? 'original') {
                 'safe' => '安全模式',
                 'full' => '高危模式',
                 _ => '原版模式',
