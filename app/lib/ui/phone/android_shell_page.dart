@@ -16,11 +16,13 @@ import 'phone_widgets.dart';
 
 String androidShellErrorText(L10n l10n, String code) => switch (code) {
   'disabled' => l10n.androidShellErrorDisabled,
+  'stopped' => l10n.androidShellErrorStopped,
   'notConnected' => l10n.androidShellErrorNotConnected,
   'shizukuMissing' => l10n.androidShellErrorShizukuMissing,
   'shizukuStopped' => l10n.androidShellErrorShizukuStopped,
   'permissionRequired' => l10n.androidShellErrorPermissionRequired,
   'adbNotPaired' => l10n.androidShellErrorAdbNotPaired,
+  'rootUnavailable' => 'root 不可用：这台设备没有 su，或 root 管理器没给本应用授权',
   'connectFailed' => l10n.androidShellErrorConnectFailed,
   'identityChanged' => l10n.androidShellErrorIdentityChanged,
   'busy' => l10n.androidShellErrorBusy,
@@ -173,6 +175,13 @@ class _AndroidShellPageState extends ConsumerState<AndroidShellPage> {
     final timeout = _status.limits['maxTimeoutMs'];
     final output = _status.limits['maxOutputBytes'];
     final shizuku = _status.backend == AndroidShellBackend.shizuku;
+    final rootBackend = _status.backend == AndroidShellBackend.root;
+    // 每种后端「还差什么」不一样：Shizuku 要授权，ADB 要配对，root 只要有 su。
+    final prerequisiteMet = shizuku
+        ? _status.shizuku.granted
+        : rootBackend
+        ? _status.root.suAvailable
+        : _status.adb.paired;
     final authorize = ListPageRow(
       key: const ValueKey('android-shell-authorize'),
       title: l10n.androidShellAuthorize,
@@ -251,7 +260,11 @@ class _AndroidShellPageState extends ConsumerState<AndroidShellPage> {
                 child: ListPageRow(
                   key: ValueKey('android-shell-backend-${backend.name}'),
                   leading: Icon(_status.backend == backend ? AppIcons.radioOn : AppIcons.radioOff),
-                  title: backend == AndroidShellBackend.shizuku ? 'Shizuku' : l10n.androidShellAdb,
+                  title: switch (backend) {
+                    AndroidShellBackend.shizuku => 'Shizuku',
+                    AndroidShellBackend.adb => l10n.androidShellAdb,
+                    AndroidShellBackend.root => 'Root（su）',
+                  },
                   onTap: !canSetup || _status.backend == backend
                       ? null
                       : () => unawaited(_run(() => _channel.configure(enabled: _status.enabled, backend: backend))),
@@ -261,9 +274,9 @@ class _AndroidShellPageState extends ConsumerState<AndroidShellPage> {
         ),
         if (shizuku && !_status.shizuku.granted)
           ListPageCard(margin: _margin, children: [authorize])
-        else if (!shizuku && !_status.adb.paired)
+        else if (!shizuku && !rootBackend && !_status.adb.paired)
           ListPageCard(margin: _margin, children: pairing),
-        if (!_status.ready && (shizuku ? _status.shizuku.granted : _status.adb.paired))
+        if (!_status.ready && prerequisiteMet)
           ListPageCard(
             margin: _margin,
             children: [
@@ -273,7 +286,9 @@ class _AndroidShellPageState extends ConsumerState<AndroidShellPage> {
                 titleMaxLines: 2,
                 subtitle: !_status.enabled ? l10n.androidShellErrorDisabled : null,
                 onTap: canSetup && _status.enabled
-                    ? () => unawaited(shizuku ? _run(_channel.connect) : _adbInput(pairing: false))
+                    ? () => unawaited(shizuku || rootBackend
+                        ? _run(_channel.connect)
+                        : _adbInput(pairing: false))
                     : null,
               ),
             ],
@@ -297,7 +312,13 @@ class _AndroidShellPageState extends ConsumerState<AndroidShellPage> {
           children: [
             PhoneNote(text: l10n.androidShellSubtitle),
             PhoneNote(text: l10n.androidShellEnableHint),
-            PhoneNote(text: shizuku ? l10n.androidShellShizukuHint : l10n.androidShellAdbHint),
+            PhoneNote(
+              text: shizuku
+                  ? l10n.androidShellShizukuHint
+                  : rootBackend
+                  ? 'Root：用 su 启动同一个 helper 进程，命令以 UID 0 执行。每次执行仍要单独确认。'
+                  : l10n.androidShellAdbHint,
+            ),
             ListPageCard(
               margin: _margin,
               children: [
@@ -320,6 +341,9 @@ class _AndroidShellPageState extends ConsumerState<AndroidShellPage> {
                   _fact(l10n.androidShellRunning, _status.shizuku.running),
                   _fact(l10n.androidShellGranted, _status.shizuku.granted),
                   if (_status.shizuku.granted) authorize,
+                ] else if (rootBackend) ...[
+                  _fact('su 可用', _status.root.suAvailable),
+                  _fact(l10n.androidShellConnected, _status.root.connected),
                 ] else ...[
                   _fact(l10n.androidShellPaired, _status.adb.paired),
                   _fact(l10n.androidShellConnected, _status.adb.connected),
@@ -327,7 +351,13 @@ class _AndroidShellPageState extends ConsumerState<AndroidShellPage> {
                 ],
               ],
             ),
-            PhoneNote(text: shizuku ? l10n.androidShellAuthorizeHint : l10n.androidShellPairingGuide),
+            PhoneNote(
+              text: shizuku
+                  ? l10n.androidShellAuthorizeHint
+                  : rootBackend
+                  ? '需要 KernelSU / Magisk / APatch 已给本应用授予 root。没有 su 时这一项会显示「root 不可用」。'
+                  : l10n.androidShellPairingGuide,
+            ),
             PhoneNote(text: l10n.androidShellStopHint),
           ],
         ),

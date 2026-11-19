@@ -72,5 +72,20 @@ internal class ShellLink(
                 Bundles.unmarshal(ShellWire.read(input) ?: throw IOException("transportLost"))
             }, { !stream.isClosed }, { stream.close() })
         }
+
+        /**
+         * Root path: `su -c` starts the same AndroidShellMain the ADB path starts, so the frames
+         * are identical; only the two pipes differ from an AdbStream.
+         */
+        fun root(process: Process): ShellLink {
+            var synced = false
+            val input = process.inputStream
+            val output = process.outputStream
+            return ShellLink("root", { request ->
+                if (!synced) { ShellWire.sync(input); synced = true }
+                ShellWire.write(output, Bundles.marshal(request))
+                Bundles.unmarshal(ShellWire.read(input) ?: throw IOException("transportLost"))
+            }, { process.isAlive }, { process.destroyForcibly() })
+        }
     }
 }
