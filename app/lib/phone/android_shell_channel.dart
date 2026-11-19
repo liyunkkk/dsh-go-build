@@ -20,6 +20,24 @@ enum AndroidShellBackend {
   };
 }
 
+/// 命令确认的粒度。默认 [window] 跟上游一致：3 分钟空闲就重新问。
+enum AndroidShellConfirmPolicy {
+  /// 一次确认管 3 分钟内的连续操作（上游默认）。
+  window,
+
+  /// 一个对话只确认一次，对话多长都一样。
+  session,
+
+  /// 始终自动确认，从不弹窗。
+  always;
+
+  static AndroidShellConfirmPolicy parse(Object? value) => switch (value) {
+    'session' => session,
+    'always' => always,
+    _ => window,
+  };
+}
+
 class AndroidShellShizukuStatus {
   const AndroidShellShizukuStatus({this.installed = false, this.running = false, this.granted = false});
 
@@ -73,6 +91,7 @@ class AndroidShellStatus {
     this.shizuku = const AndroidShellShizukuStatus(),
     this.adb = const AndroidShellAdbStatus(),
     this.root = const AndroidShellRootStatus(),
+    this.confirmPolicy = AndroidShellConfirmPolicy.window,
     this.limits = const {},
   });
 
@@ -97,6 +116,7 @@ class AndroidShellStatus {
       shizuku: AndroidShellShizukuStatus.fromMap(_map(value['shizuku'])),
       adb: AndroidShellAdbStatus.fromMap(_map(value['adb'])),
       root: AndroidShellRootStatus.fromMap(_map(value['root'])),
+      confirmPolicy: AndroidShellConfirmPolicy.parse(value['confirmPolicy']),
       limits: Map.unmodifiable({
         for (final key in const ['defaultTimeoutMs', 'maxTimeoutMs', 'maxOutputBytes', 'maxCommandBytes'])
           key: ?_nonNegativeInt(limits[key]),
@@ -115,6 +135,9 @@ class AndroidShellStatus {
 
   /// The root transport: `su -c` starting the same helper the ADB path starts.
   final AndroidShellRootStatus root;
+
+  /// 命令确认的粒度：3 分钟窗口 / 一个对话一次 / 始终不问。
+  final AndroidShellConfirmPolicy confirmPolicy;
   final Map<String, int> limits;
 }
 
@@ -149,6 +172,9 @@ class AndroidShellChannel {
       return AndroidShellStatus.unavailable(_code(error.code) ?? 'invalidResponse');
     }
   }
+
+  Future<AndroidShellResult> setConfirmPolicy(AndroidShellConfirmPolicy policy) =>
+      _result('setAndroidShellConfirmPolicy', {'policy': policy.name});
 
   Future<AndroidShellResult> configure({required bool enabled, required AndroidShellBackend backend}) =>
       _result('configureAndroidShell', {'enabled': enabled, 'backend': backend.name});

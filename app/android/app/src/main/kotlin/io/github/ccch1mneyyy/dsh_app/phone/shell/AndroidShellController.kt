@@ -50,6 +50,7 @@ class AndroidShellController(context: Context, private val onChanged: () -> Unit
             "v" to 1, "enabled" to config.first, "backend" to config.second,
             "ready" to (config.first && link != null), "uid" to link?.uid,
             "reasonCode" to reason, "shizuku" to shizukuStatus, "adb" to adbStatus, "root" to rootStatus,
+            "confirmPolicy" to confirmPolicy(),
             "limits" to mapOf("defaultTimeoutMs" to ShellProtocol.DEFAULT_TIMEOUT_MS,
                 "maxTimeoutMs" to ShellProtocol.MAX_TIMEOUT_MS, "maxOutputBytes" to ShellProtocol.MAX_OUTPUT_BYTES,
                 "maxCommandBytes" to ShellProtocol.MAX_COMMAND_BYTES),
@@ -68,6 +69,17 @@ class AndroidShellController(context: Context, private val onChanged: () -> Unit
             }
         }
         if (changed) { adb.disconnect(); shizuku.disconnect(); root.disconnect(); onChanged() }
+        return status() + mapOf("ok" to true, "errorCode" to null)
+    }
+
+    /** Android Shell 的确认策略，存在同一份 prefs 里，跟后端选择一起持久化。 */
+    fun confirmPolicy(): String = PhoneAndroidShell.normalizePolicy(
+        preferences.getString("confirmPolicy", PhoneAndroidShell.POLICY_WINDOW))
+
+    fun setConfirmPolicy(value: String): Map<String, Any?> {
+        val policy = PhoneAndroidShell.normalizePolicy(value)
+        preferences.edit().putString("confirmPolicy", policy).apply()
+        onChanged()
         return status() + mapOf("ok" to true, "errorCode" to null)
     }
 

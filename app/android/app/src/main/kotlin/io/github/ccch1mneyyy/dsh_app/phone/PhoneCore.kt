@@ -27,6 +27,10 @@ interface PhoneEnv {
     fun backgroundUnavailable(): String
     fun system(): SystemApi
     fun androidShell(): PhoneShellExecutor? = null
+    /** Android Shell 的确认策略：window（3 分钟窗口）/ session（一个会话一次）/ always（不问）。 */
+    fun androidShellConfirmPolicy(): String = PhoneAndroidShell.POLICY_WINDOW
+    /** 这次调用属于哪个对话；session 档用它记住「这个会话已确认」。 */
+    fun sessionIdFor(taskId: Long): String? = null
     fun uiText(): PhoneUiText = PhoneUiText.DEFAULT
     fun zone(): ZoneId
     /** Tells the person what to fix (accessibility off, …); at most once per task and kind. */
@@ -411,7 +415,9 @@ class PhoneCore(
         // Arbitrary system effects cannot become an implicitly verified UI replay route.
         skillTrace.markIncomplete(owner, PhoneTaskTrace.Gap.UNCERTAIN_RESULT)
         val result = PhoneAndroidShell.run(request, owner, tasks, scope, env.androidShell(),
-            env::enabled, env::isLocked, env::gate, ui)
+            env::enabled, env::isLocked, env::gate, ui,
+            confirmPolicy = env.androidShellConfirmPolicy(),
+            sessionId = env.sessionIdFor(owner.taskId))
         val successfulExit = when (val code = result["exitCode"]) {
             is Int -> code == 0
             is Long -> code == 0L

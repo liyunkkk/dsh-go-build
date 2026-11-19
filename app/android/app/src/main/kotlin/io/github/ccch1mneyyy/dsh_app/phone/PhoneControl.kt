@@ -1017,6 +1017,10 @@ class PhoneControl private constructor(private val app: Context) : PhoneEnv, Con
         shell.execute(ownerId, command, timeoutMs, live, confirm)
     }
 
+    override fun androidShellConfirmPolicy(): String = shell.confirmPolicy()
+
+    override fun sessionIdFor(taskId: Long): String? = sessions.task(taskId)?.sessionId
+
     override fun zone(): ZoneId = ZoneId.systemDefault()
 
     override fun notifyFix(kind: String) = notifyFixFor(tasks, kind)

@@ -298,6 +298,14 @@ class PhonePlugin : FlutterPlugin, ActivityAware, MethodChannel.MethodCallHandle
                 control.setAllowedCommands(list)
                 result.success(linkedMapOf("ok" to true, "count" to list.size))
             }
+            "setAndroidShellConfirmPolicy" -> {
+                val policy = call.argument<String>("policy")
+                if (policy !in setOf(PhoneAndroidShell.POLICY_WINDOW, PhoneAndroidShell.POLICY_SESSION, PhoneAndroidShell.POLICY_ALWAYS)) {
+                    result.success(linkedMapOf("ok" to false, "errorCode" to "invalidArguments"))
+                } else {
+                    result.success(control.shell.setConfirmPolicy(policy!!))
+                }
+            }
             "setSdcardAllowed" -> {
                 control.setSdcardAllowed(call.argument<Boolean>("on") ?: false)
                 result.success(mapOf("ok" to true))

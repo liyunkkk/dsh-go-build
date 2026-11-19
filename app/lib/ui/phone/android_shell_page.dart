@@ -272,6 +272,40 @@ class _AndroidShellPageState extends ConsumerState<AndroidShellPage> {
               ),
           ],
         ),
+        ListPageCard(
+          margin: _margin,
+          title: '命令确认',
+          children: [
+            for (final policy in AndroidShellConfirmPolicy.values)
+              Semantics(
+                selected: _status.confirmPolicy == policy,
+                inMutuallyExclusiveGroup: true,
+                child: ListPageRow(
+                  key: ValueKey('android-shell-confirm-${policy.name}'),
+                  leading: Icon(
+                    _status.confirmPolicy == policy ? AppIcons.radioOn : AppIcons.radioOff,
+                  ),
+                  title: switch (policy) {
+                    AndroidShellConfirmPolicy.window => '每 3 分钟问一次',
+                    AndroidShellConfirmPolicy.session => '一个对话问一次',
+                    AndroidShellConfirmPolicy.always => '始终不确认',
+                  },
+                  subtitle: switch (policy) {
+                    AndroidShellConfirmPolicy.window =>
+                      '默认：一次确认管 3 分钟内的连续命令，空闲超时后重新问。',
+                    AndroidShellConfirmPolicy.session =>
+                      '整个对话只弹一次，对话多长都一样；换对话重新弹。',
+                    AndroidShellConfirmPolicy.always =>
+                      '执行任何命令都不弹窗。命令仍会进「最近记录」。',
+                  },
+                  subtitleMaxLines: 3,
+                  onTap: _status.confirmPolicy == policy
+                      ? null
+                      : () => unawaited(_run(() => _channel.setConfirmPolicy(policy))),
+                ),
+              ),
+          ],
+        ),
         if (shizuku && !_status.shizuku.granted)
           ListPageCard(margin: _margin, children: [authorize])
         else if (!shizuku && !rootBackend && !_status.adb.paired)
