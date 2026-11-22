@@ -69,7 +69,8 @@ jobs:
         run: bash runtime/build-runtime.sh arm64-v8a
 
       - name: Build APK
-        run: DSH_BETA_TOKEN_FILE= bash tooling/build-apk.sh -f arm64
+        # companion pack（鲸娘）是 licensed 素材、不入库，这里用 --no-companion 跳过
+        run: DSH_BETA_TOKEN_FILE= bash tooling/build-apk.sh -f arm64 --no-companion
 
       - name: Show artifacts
         run: find app/build/app/outputs -name '*.apk' -exec ls -lh {} \;
